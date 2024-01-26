@@ -1,24 +1,95 @@
+use std::{fmt::Debug, thread, time::Duration};
+use std::fs::File;
+use std::io::{self, Read};
+
+struct Display {
+    pixels: [u8; 2048] // 64*32
+}
+
+impl Display {
+    fn new() -> Display {
+        Display {
+            pixels: [0; 2048]
+        }
+    }
+
+    fn xy_to_index(x: u16, y: u16) -> u16 {
+        return y*32+x;
+    }
+
+    fn write(mut self, x: u16, y: u16, val: u8) {
+        let index = Self::xy_to_index(x, y);
+        self.pixels[usize::from(index)] = val;
+    }
+    fn read(self, x: u16, y: u16) -> u8 {
+        let index = Self::xy_to_index(x, y);
+        return self.pixels[usize::from(index)]
+    }
+}
+
+struct NoOp {
+    
+}
+
+trait Instruction {
+    fn execute(&self);
+}
+
+impl NoOp {
+    fn new() -> NoOp {
+        NoOp {
+
+        }
+    }
+}
+
+impl Instruction for NoOp {
+    fn execute(&self) {
+        println!("No-op instruction has been implemented");
+    }
+}
+
+enum Instructions {
+    NoOp(NoOp)
+}
+
+impl Instruction for Instructions {
+    fn execute(&self) {
+        match self {
+            Instructions::NoOp(instruction) => instruction.execute()
+        }
+    }
+}
+
+impl Debug for Instructions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Instructions::NoOp(instruction) => write!(f, "Instruction: No-op")
+        }
+    }
+}
+
 struct Chip8 {
     a: i32,
     mem: [u8; 4096],
     pc: i32,
-    I: i16,
-    stack: [i16; 100],
-    timer: i8,
-    sound: i8,
+    I: u16,
+    stack: Vec<u16>,
+    delay_timer: i8,
+    sound_timer: i8,
     registers: [i8; 16]
 }
 
 impl Chip8 {
-    fn new() -> Chip8 {
+    fn new(memory: Option<[u8; 4096]>) -> Chip8 {
         let mut chip8 = Chip8 {
             a: 1,
-            mem: [0; 4096],
+            mem: memory.unwrap_or([0; 4096]),
             pc: 1,
-            I: 0,
-            stack: [0; 100],
-            timer: 0,
-            sound: 0,
+            I: 0x1FF,
+            stack: vec!(),
+            delay_timer: 0,
+            sound_timer: 0,
             registers: [0; 16]
         };
 
@@ -120,14 +191,77 @@ impl Chip8 {
         chip8.mem[0x09E] = 0x80;
         chip8.mem[0x09F] = 0x80;
 
-
-
-
-
         return chip8;
+    }
+
+    fn fetch(&mut self) -> Instructions {
+        let index_1 = self.I;
+        let instruction_1 = self.get_instruction(index_1);
+        self.I += 1;
+        let index_2 = self.I;
+        let instruction_2 = self.get_instruction(index_2);
+        self.I += 1;
+        println!("First index is at: {}. Second index is at: {}. The values are {} and {}", index_1, index_2, instruction_1, instruction_2);
+        Instructions::NoOp(NoOp::new())
+    }
+    
+    fn get_instruction(&self, I: u16) -> u8 {
+        self.mem[usize::from(I)]
+    }
+
+    fn execute(self, instruction: Instructions) {
+        instruction.execute()
+    }
+
+    fn stack_pop(mut self) -> Option<u16> {
+        self.stack.pop()
+    }
+    fn stack_push(mut self, val: u16) {
+        self.stack.push(val)
+    }
+
+    fn progress_time(mut self) {
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        }
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+        }
+    }
+
+    fn should_beep(self) -> bool {
+        self.sound_timer > 0
     }
 }
 
+fn read_rom(path: &str) -> io::Result<[u8; 4096]> {
+    let mut memory: [u8; 4096] = [0; 4096];
+    
+    let mut file_buffer: Vec<u8> = vec!();
+    let mut file = File::open(path)?;
+    file.read_to_end(&mut file_buffer);
+    
+    for (i, &byte) in file_buffer.iter().enumerate() {
+        memory[i+0x200] = byte;
+    }
+
+    return Ok(memory)
+}
+
 fn main() {
-    let _chip8 = Chip8::new();
+    let rom_path = "./IBM Logo.ch8";
+    let memory = read_rom(rom_path).unwrap();
+    println!("{:?}", memory);
+
+    let mut chip8 = Chip8::new(Some(memory));
+    let _display = Display::new();
+
+    loop {
+        println!("The loop iteration has started");
+
+        let a = chip8.fetch();
+        println!("{:?}", a);
+        thread::sleep(Duration::from_secs(1));
+        println!("The loop iteration has ended");
+    }
 }
