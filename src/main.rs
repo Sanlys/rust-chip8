@@ -56,23 +56,27 @@ impl Instructions {
                 Instructions::NoOp(NoOp::new())
             }
             v if (v & 0xF000) == 0x1000 => {
-                println!("Fant 0x1NNN: Jump");
+                println!("Fant 0x1NNN: Jump to address {}", (v & 0x0FFF));
                 Instructions::NoOp(NoOp::new())
             }
             v if (v & 0xF000) == 0x6000 => {
-                println!("Fant 0x6XNN: Set register VX to NN");
+                println!("Fant 0x6XNN: Set register V{} to {}", (v & 0x0F00), (v & 0x00FF));
                 Instructions::NoOp(NoOp::new())
             }
             v if (v & 0xF000) == 0x7000 => {
-                println!("Fant 0x7XNN: Add value NN to register VX");
+                println!("Fant 0x7XNN: Add value {} to register V{}", (v & 0x00FF), (v & 0x0F00));
                 Instructions::NoOp(NoOp::new())
             }
             v if (v & 0xF000) == 0xA000 => {
-                println!("Fant 0xANNN: Set index register I");
+                println!("Fant 0xANNN: Set index to {}", (v & 0x0FFF));
                 Instructions::NoOp(NoOp::new())
             }
             v if (v & 0xF000) == 0xD000 => {
-                println!("Fant 0xDXYN: Display");
+                println!("Fant 0xDXYN: Display X: {}, Y: {}, N: {}", (v & 0x0F00), (v & 0x00F0), (v & 0x000F));
+                Instructions::NoOp(NoOp::new())
+            }
+            v if (v & 0xF000) == 0x0000 => {
+                println!("Fant 0NNN: Execute machine language routine, not supported {}", (v & 0x0FFF));
                 Instructions::NoOp(NoOp::new())
             }
             _ => {
@@ -233,12 +237,12 @@ impl Chip8 {
         let index_2 = self.I;
         let instruction_2 = self.get_instruction(index_2);
         self.I += 1;
-        let combined: u16 = (instruction_1 as u16) << 8 | instruction_2 as u16;
+        let complete_instruction: u16 = (instruction_1 as u16) << 8 | instruction_2 as u16;
         println!(
             "Instruction as decimal: {}. Instruction as hex: {:02X}",
-            combined, combined
+            complete_instruction, complete_instruction
         );
-        Instructions::new(combined)
+        Instructions::new(complete_instruction)
     }
 
     fn get_instruction(&self, I: u16) -> u8 {
