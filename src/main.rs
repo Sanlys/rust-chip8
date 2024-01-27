@@ -1,20 +1,18 @@
-use std::{fmt::Debug, thread, time::Duration};
 use std::fs::File;
 use std::io::{self, Read};
+use std::{fmt::Debug, thread, time::Duration};
 
 struct Display {
-    pixels: [u8; 2048] // 64*32
+    pixels: [u8; 2048], // 64*32
 }
 
 impl Display {
     fn new() -> Display {
-        Display {
-            pixels: [0; 2048]
-        }
+        Display { pixels: [0; 2048] }
     }
 
     fn xy_to_index(x: u16, y: u16) -> u16 {
-        return y*32+x;
+        return y * 32 + x;
     }
 
     fn write(mut self, x: u16, y: u16, val: u8) {
@@ -23,13 +21,11 @@ impl Display {
     }
     fn read(self, x: u16, y: u16) -> u8 {
         let index = Self::xy_to_index(x, y);
-        return self.pixels[usize::from(index)]
+        return self.pixels[usize::from(index)];
     }
 }
 
-struct NoOp {
-    
-}
+struct NoOp {}
 
 trait Instruction {
     fn execute(&self);
@@ -37,9 +33,7 @@ trait Instruction {
 
 impl NoOp {
     fn new() -> NoOp {
-        NoOp {
-
-        }
+        NoOp {}
     }
 }
 
@@ -50,13 +44,51 @@ impl Instruction for NoOp {
 }
 
 enum Instructions {
-    NoOp(NoOp)
+    NoOp(NoOp),
+}
+
+impl Instructions {
+    fn new(instruction: u16) -> Instructions {
+        match instruction {
+            1 => Instructions::NoOp(NoOp::new()),
+            0x00E0 => {
+                println!("Fant 0x00E0: Clearer skjermen");
+                Instructions::NoOp(NoOp::new())
+            }
+            v if (v & 0xF000) == 0x1000 => {
+                println!("Fant 0x1NNN: Jump");
+                Instructions::NoOp(NoOp::new())
+            }
+            v if (v & 0xF000) == 0x6000 => {
+                println!("Fant 0x6XNN: Set register VX to NN");
+                Instructions::NoOp(NoOp::new())
+            }
+            v if (v & 0xF000) == 0x7000 => {
+                println!("Fant 0x7XNN: Add value NN to register VX");
+                Instructions::NoOp(NoOp::new())
+            }
+            v if (v & 0xF000) == 0xA000 => {
+                println!("Fant 0xANNN: Set index register I");
+                Instructions::NoOp(NoOp::new())
+            }
+            v if (v & 0xF000) == 0xD000 => {
+                println!("Fant 0xDXYN: Display");
+                Instructions::NoOp(NoOp::new())
+            }
+            _ => {
+                println!("==========================");
+                println!("Unimplemented instruction! {}", instruction);
+                println!("==========================");
+                Instructions::NoOp(NoOp::new())
+            },
+        }
+    }
 }
 
 impl Instruction for Instructions {
     fn execute(&self) {
         match self {
-            Instructions::NoOp(instruction) => instruction.execute()
+            Instructions::NoOp(instruction) => instruction.execute(),
         }
     }
 }
@@ -64,7 +96,7 @@ impl Instruction for Instructions {
 impl Debug for Instructions {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Instructions::NoOp(instruction) => write!(f, "Instruction: No-op")
+            Instructions::NoOp(_) => write!(f, "Instruction: No-op"),
         }
     }
 }
@@ -77,7 +109,7 @@ struct Chip8 {
     stack: Vec<u16>,
     delay_timer: i8,
     sound_timer: i8,
-    registers: [i8; 16]
+    registers: [i8; 16],
 }
 
 impl Chip8 {
@@ -86,11 +118,11 @@ impl Chip8 {
             a: 1,
             mem: memory.unwrap_or([0; 4096]),
             pc: 1,
-            I: 0x1FF,
-            stack: vec!(),
+            I: 0x200,
+            stack: vec![],
             delay_timer: 0,
             sound_timer: 0,
-            registers: [0; 16]
+            registers: [0; 16],
         };
 
         // Font
@@ -201,10 +233,14 @@ impl Chip8 {
         let index_2 = self.I;
         let instruction_2 = self.get_instruction(index_2);
         self.I += 1;
-        println!("First index is at: {}. Second index is at: {}. The values are {} and {}", index_1, index_2, instruction_1, instruction_2);
-        Instructions::NoOp(NoOp::new())
+        let combined: u16 = (instruction_1 as u16) << 8 | instruction_2 as u16;
+        println!(
+            "Instruction as decimal: {}. Instruction as hex: {:02X}",
+            combined, combined
+        );
+        Instructions::new(combined)
     }
-    
+
     fn get_instruction(&self, I: u16) -> u8 {
         self.mem[usize::from(I)]
     }
@@ -236,16 +272,16 @@ impl Chip8 {
 
 fn read_rom(path: &str) -> io::Result<[u8; 4096]> {
     let mut memory: [u8; 4096] = [0; 4096];
-    
-    let mut file_buffer: Vec<u8> = vec!();
+
+    let mut file_buffer: Vec<u8> = vec![];
     let mut file = File::open(path)?;
     file.read_to_end(&mut file_buffer);
-    
+
     for (i, &byte) in file_buffer.iter().enumerate() {
-        memory[i+0x200] = byte;
+        memory[i + 0x200] = byte;
     }
 
-    return Ok(memory)
+    return Ok(memory);
 }
 
 fn main() {
@@ -259,9 +295,8 @@ fn main() {
     loop {
         println!("The loop iteration has started");
 
-        let a = chip8.fetch();
-        println!("{:?}", a);
+        let _ = chip8.fetch();
+        println!("--------------------------------");
         thread::sleep(Duration::from_secs(1));
-        println!("The loop iteration has ended");
     }
 }
